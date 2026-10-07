@@ -1,0 +1,873 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#05070f" />
+<meta name="description" content="Dinheiro Fácil — jogo incremental de mineração fictícia. Nenhum valor é real." />
+<title>Dinheiro Fácil</title>
+<style>
+  :root{
+    --bg:#05070f;
+    --bg2:#0a0f1e;
+    --card:#0e1526;
+    --card2:#131c33;
+    --line:#1d2a46;
+    --txt:#eaf0ff;
+    --mut:#8aa0c8;
+    --accent:#36e0a4;
+    --accent2:#2bd3ff;
+    --gold:#ffd24a;
+    --danger:#ff5d6c;
+    --green:#15b65c;
+    --green-d:#0e8f46;
+    --rgb1:#ff3d81; --rgb2:#8a5bff; --rgb3:#2bd3ff; --rgb4:#36e0a4;
+    --px:0; --py:0; --gx:0; --gy:0;
+    --safe-t:env(safe-area-inset-top,0px);
+    --safe-b:env(safe-area-inset-bottom,0px);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{
+    margin:0; background:var(--bg); color:var(--txt);
+    font-family:"Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;
+    overflow:hidden; position:fixed; inset:0;
+    touch-action:manipulation;
+  }
+  button{font-family:inherit; cursor:pointer; border:none; color:inherit; background:none}
+  .hidden{display:none !important}
+
+  /* ===================== PARALLAX BACKGROUND ===================== */
+  #parallax{position:fixed; inset:-8%; z-index:0; overflow:hidden; pointer-events:none}
+  .layer{position:absolute; inset:0; will-change:transform; transition:transform .25s cubic-bezier(.2,.8,.2,1)}
+  .l-nebula{
+    background:
+      radial-gradient(1200px 700px at 20% 15%, rgba(43,211,255,.16), transparent 60%),
+      radial-gradient(1000px 800px at 85% 25%, rgba(138,91,255,.18), transparent 60%),
+      radial-gradient(900px 900px at 60% 100%, rgba(54,224,164,.12), transparent 60%),
+      linear-gradient(180deg,var(--bg),var(--bg2));
+  }
+  .l-grid{
+    background-image:linear-gradient(rgba(60,110,200,.10) 1px,transparent 1px),linear-gradient(90deg,rgba(60,110,200,.10) 1px,transparent 1px);
+    background-size:46px 46px; mask-image:radial-gradient(90% 70% at 50% 40%,#000 40%,transparent 85%);
+    opacity:.7;
+  }
+  .l-stars{opacity:.9}
+  .star{position:absolute; width:2px; height:2px; border-radius:50%; background:#cfe3ff; box-shadow:0 0 6px #9cc2ff; animation:tw 3.4s ease-in-out infinite}
+  @keyframes tw{0%,100%{opacity:.25}50%{opacity:1}}
+  .bit{position:absolute; font:700 11px monospace; color:rgba(54,224,164,.55); text-shadow:0 0 8px rgba(54,224,164,.5); animation:fall linear infinite}
+  @keyframes fall{from{transform:translateY(-10vh)}to{transform:translateY(110vh)}}
+
+  /* ===================== APP SHELL ===================== */
+  #app{position:relative; z-index:2; height:100%; max-width:520px; margin:0 auto;
+    display:flex; flex-direction:column;
+    padding:calc(var(--safe-t) + 8px) 12px calc(var(--safe-b) + 6px);
+    background:linear-gradient(180deg,rgba(5,7,15,.0),rgba(5,7,15,.35));
+  }
+
+  /* HUD */
+  .hud{display:flex; align-items:center; gap:10px}
+  .brand{display:flex; flex-direction:column; line-height:1}
+  .brand b{font-size:15px; letter-spacing:.3px}
+  .brand .ficticio{
+    margin-top:3px; font-size:9px; font-weight:800; letter-spacing:.6px; color:#06110c;
+    background:linear-gradient(90deg,var(--gold),#ffe58a); padding:2px 6px; border-radius:999px; width:max-content;
+    box-shadow:0 0 0 1px rgba(255,210,74,.5)
+  }
+  .hud .spacer{flex:1}
+  .iconbtn{width:40px; height:40px; border-radius:12px; background:var(--card); border:1px solid var(--line);
+    display:grid; place-items:center; font-size:18px; box-shadow:inset 0 1px 0 rgba(255,255,255,.04)}
+  .iconbtn:active{transform:scale(.94)}
+
+  .balance-wrap{margin:14px 2px 6px; text-align:center}
+  .balance-label{font-size:11px; color:var(--mut); letter-spacing:1.5px; text-transform:uppercase}
+  .balance{font-size:clamp(30px,10vw,46px); font-weight:800; letter-spacing:.5px;
+    background:linear-gradient(90deg,#fff,#b9f3d9 60%,#8fe8ff); -webkit-background-clip:text; background-clip:text; color:transparent;
+    text-shadow:0 0 26px rgba(54,224,164,.18); font-variant-numeric:tabular-nums}
+  .balance.pulse{animation:bp .4s ease}
+  @keyframes bp{0%{transform:scale(1)}40%{transform:scale(1.06)}100%{transform:scale(1)}}
+  .subrate{font-size:12px; color:var(--accent); margin-top:2px; font-weight:600}
+  .subrate small{color:var(--mut); font-weight:500}
+
+  /* GOAL */
+  .goal{margin:8px 4px 2px}
+  .goal .top{display:flex; justify-content:space-between; font-size:11px; color:var(--mut); margin-bottom:5px}
+  .goal .top b{color:var(--gold)}
+  .bar{height:9px; border-radius:999px; background:#0b1326; border:1px solid var(--line); overflow:hidden}
+  .bar > i{display:block; height:100%; width:0%;
+    background:linear-gradient(90deg,var(--accent),var(--accent2)); box-shadow:0 0 14px rgba(43,211,255,.5); transition:width .3s}
+
+  /* RIG / STAGE */
+  .stage{flex:1; position:relative; display:grid; place-items:center; min-height:0}
+  .rig{position:relative; width:min(92%,420px); aspect-ratio:1/.62; filter:drop-shadow(0 30px 40px rgba(0,0,0,.55))}
+  .rig-glow{position:absolute; inset:-18% -6% -30%; z-index:-1; border-radius:50%;
+    background:radial-gradient(closest-side,rgba(54,224,164,.28),rgba(43,211,255,.10),transparent 72%); filter:blur(8px);
+    animation:breathe 3.6s ease-in-out infinite}
+  @keyframes breathe{0%,100%{opacity:.6;transform:scale(1)}50%{opacity:1;transform:scale(1.05)}}
+  .rig svg{width:100%; height:100%; display:block}
+  .tap-ring{position:absolute; left:50%; top:50%; width:72%; height:120%; transform:translate(-50%,-50%);
+    border-radius:50%; pointer-events:none}
+  .tap-hint{position:absolute; left:50%; bottom:-6px; transform:translateX(-50%);
+    font-size:11px; color:var(--mut); letter-spacing:1px; text-transform:uppercase; white-space:nowrap}
+  .tap-hint b{color:var(--accent)}
+  .heat{position:absolute; left:8%; right:8%; top:-6%; height:30%; pointer-events:none; z-index:-1;
+    background:linear-gradient(180deg,rgba(255,120,60,.14),transparent); filter:blur(7px); border-radius:50%;
+    animation:heat 2.2s ease-in-out infinite}
+  @keyframes heat{0%,100%{opacity:.4;transform:translateY(0) scaleY(1)}50%{opacity:.8;transform:translateY(-6px) scaleY(1.08)}}
+
+  /* fan spin */
+  .fan{transform-box:fill-box; transform-origin:center; animation:spin var(--fd,1.4s) linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .reduce .fan{animation-duration:3s}
+
+  /* STATS */
+  .stats{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin:6px 2px 10px}
+  .stat{background:linear-gradient(180deg,var(--card),var(--card2)); border:1px solid var(--line); border-radius:14px; padding:9px 8px; text-align:center}
+  .stat .k{font-size:10px; color:var(--mut); text-transform:uppercase; letter-spacing:.6px}
+  .stat .v{font-size:15px; font-weight:800; margin-top:3px; font-variant-numeric:tabular-nums}
+  .stat .v.sm{font-size:13px}
+
+  /* multiplier active banner */
+  .mult-active{display:flex; align-items:center; gap:8px; justify-content:center; margin:0 2px 8px; height:34px;
+    border-radius:12px; border:1px solid rgba(255,210,74,.35);
+    background:linear-gradient(90deg,rgba(255,210,74,.14),rgba(255,93,108,.14)); font-size:12px; font-weight:700; color:var(--gold)}
+  .mult-active .mb{height:6px; width:90px; border-radius:999px; background:rgba(0,0,0,.35); overflow:hidden}
+  .mult-active .mb > i{display:block; height:100%; background:linear-gradient(90deg,var(--gold),var(--danger))}
+
+  /* BOTTOM NAV */
+  .nav{display:grid; grid-template-columns:1fr 1fr 1.5fr; gap:10px; margin-top:auto}
+  .nav button{border-radius:16px; padding:13px 8px; font-size:13px; font-weight:700; border:1px solid var(--line);
+    background:linear-gradient(180deg,var(--card),var(--card2)); display:flex; flex-direction:column; align-items:center; gap:3px}
+  .nav button .ic{font-size:19px}
+  .nav button:active{transform:scale(.96)}
+  .btn-sacar{color:#042611;
+    background:linear-gradient(180deg,#27d66d,var(--green)) !important; border:1px solid #1ec96a !important;
+    box-shadow:0 10px 24px rgba(21,182,92,.35), inset 0 1px 0 rgba(255,255,255,.4); letter-spacing:1px}
+  .btn-sacar .ic{font-size:20px}
+
+  /* ===================== OVERLAYS / MODALS ===================== */
+  .overlay{position:fixed; inset:0; z-index:40; background:rgba(3,5,12,.72); backdrop-filter:blur(7px);
+    display:grid; place-items:center; padding:18px; animation:fade .2s ease}
+  @keyframes fade{from{opacity:0}to{opacity:1}}
+  .sheet{width:100%; max-width:460px; max-height:88vh; overflow:auto; background:linear-gradient(180deg,#0c1324,#0a1020);
+    border:1px solid var(--line); border-radius:22px; padding:18px; box-shadow:0 30px 80px rgba(0,0,0,.6);
+    animation:rise .28s cubic-bezier(.2,.9,.2,1)}
+  @keyframes rise{from{transform:translateY(24px);opacity:0}to{transform:translateY(0);opacity:1}}
+  .sheet h2{margin:0 0 2px; font-size:19px}
+  .sheet .sub{color:var(--mut); font-size:12px; margin-bottom:14px}
+  .sheet .close{position:sticky; top:0; float:right; margin:-4px -4px 0 0; width:34px; height:34px; border-radius:10px;
+    background:var(--card); border:1px solid var(--line); font-size:16px}
+
+  /* shop items */
+  .shop-item{display:flex; align-items:center; gap:11px; padding:11px; border:1px solid var(--line); border-radius:16px;
+    background:linear-gradient(180deg,var(--card),var(--card2)); margin-bottom:10px}
+  .shop-item .gpu-mini{width:54px; height:40px; flex:0 0 auto; border-radius:9px; position:relative; overflow:hidden;
+    background:linear-gradient(135deg,#12213f,#0b1428); border:1px solid #223457; display:grid; place-items:center}
+  .shop-item .gpu-mini .dot{width:14px; height:14px; border-radius:50%;
+    background:conic-gradient(var(--rgb1),var(--rgb2),var(--rgb3),var(--rgb4),var(--rgb1)); animation:spin 2s linear infinite}
+  .shop-item .info{flex:1; min-width:0}
+  .shop-item .info .nm{font-weight:800; font-size:14px}
+  .shop-item .info .meta{font-size:11px; color:var(--mut); margin-top:2px}
+  .shop-item .info .meta b{color:var(--accent)}
+  .shop-item .info .owned{font-size:10px; color:var(--gold); margin-top:3px}
+  .buy{flex:0 0 auto; padding:10px 12px; border-radius:12px; font-weight:800; font-size:12px; min-width:92px; text-align:center;
+    background:linear-gradient(180deg,#1b3a6b,#14294d); border:1px solid #2a4e8a; color:#dbe9ff; font-variant-numeric:tabular-nums}
+  .buy:disabled{opacity:.4; filter:grayscale(.6)}
+  .buy:not(:disabled):active{transform:scale(.95)}
+
+  /* profile */
+  .prof-head{display:flex; align-items:center; gap:14px; margin-bottom:14px}
+  .avatar{width:64px; height:64px; border-radius:18px; display:grid; place-items:center; font-size:28px; font-weight:800; color:#04110a;
+    background:linear-gradient(135deg,var(--accent),var(--accent2)); box-shadow:0 0 24px rgba(54,224,164,.35)}
+  .prof-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px}
+  .prof-grid .cell{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:11px}
+  .prof-grid .cell .k{font-size:10px; color:var(--mut); text-transform:uppercase}
+  .prof-grid .cell .v{font-size:16px; font-weight:800; margin-top:3px; font-variant-numeric:tabular-nums}
+  .toggle-row{display:flex; align-items:center; justify-content:space-between; padding:11px; border:1px solid var(--line);
+    border-radius:14px; background:var(--card); margin-bottom:10px; font-size:13px}
+  .sw{width:46px; height:26px; border-radius:999px; background:#22304f; position:relative; transition:background .2s; flex:0 0 auto}
+  .sw.on{background:var(--green)}
+  .sw::after{content:""; position:absolute; top:3px; left:3px; width:20px; height:20px; border-radius:50%; background:#fff; transition:left .2s}
+  .sw.on::after{left:23px}
+
+  /* generic buttons */
+  .big{width:100%; padding:15px; border-radius:16px; font-weight:800; font-size:15px; letter-spacing:.5px}
+  .big.green{color:#042611; background:linear-gradient(180deg,#27d66d,var(--green)); box-shadow:0 12px 28px rgba(21,182,92,.4)}
+  .big.ghost{background:var(--card); border:1px solid var(--line); color:var(--txt)}
+  .big.red{background:linear-gradient(180deg,#ff6b78,#e23b4c); color:#fff}
+  .big:active{transform:scale(.98)}
+  .note{font-size:11px; color:var(--mut); text-align:center; margin-top:10px; line-height:1.5}
+
+  /* withdraw */
+  .wd-amount{text-align:center; margin:4px 0 14px}
+  .wd-amount .v{font-size:34px; font-weight:800; font-variant-numeric:tabular-nums;
+    background:linear-gradient(90deg,#fff,#b9f3d9); -webkit-background-clip:text; background-clip:text; color:transparent}
+  .ficticio-banner{display:flex; gap:9px; align-items:flex-start; background:rgba(255,210,74,.10); border:1px solid rgba(255,210,74,.35);
+    border-radius:14px; padding:11px 12px; font-size:12px; color:#ffe9a8; line-height:1.5; margin-bottom:14px}
+  .ficticio-banner .ic{font-size:18px; flex:0 0 auto}
+  .receipt{border:1px dashed #2b3c5f; border-radius:14px; padding:14px; background:#070c18; font-family:monospace; font-size:12px; color:#cfe0ff}
+  .receipt .r{display:flex; justify-content:space-between; gap:10px; padding:4px 0; border-bottom:1px dotted #1c2a45}
+  .receipt .r:last-child{border:none}
+  .receipt .r span:first-child{color:var(--mut)}
+  .stamp{margin-top:10px; text-align:center; font-weight:800; color:var(--gold); border:2px dashed var(--gold); border-radius:10px;
+    padding:7px; letter-spacing:1px; transform:rotate(-2deg)}
+
+  /* LOGIN */
+  #login{position:fixed; inset:0; z-index:60; display:grid; place-items:center; padding:22px;
+    background:radial-gradient(900px 700px at 50% 0%,#0c1630,#05070f 70%)}
+  .login-card{width:100%; max-width:380px; text-align:center}
+  .logo-badge{width:84px; height:84px; margin:0 auto 14px; border-radius:24px; display:grid; place-items:center; font-size:40px;
+    background:linear-gradient(135deg,#0e1b36,#0a1326); border:1px solid #24406e; box-shadow:0 0 40px rgba(43,211,255,.25); position:relative; overflow:hidden}
+  .logo-badge .ring{position:absolute; width:46px; height:46px; border-radius:50%;
+    background:conic-gradient(var(--rgb1),var(--rgb2),var(--rgb3),var(--rgb4),var(--rgb1)); filter:blur(.3px); animation:spin 2.6s linear infinite; opacity:.9}
+  .logo-badge .cap{position:relative; z-index:1}
+  #login h1{font-size:28px; margin:0 0 4px; letter-spacing:.5px;
+    background:linear-gradient(90deg,#fff,#8fe8ff); -webkit-background-clip:text; background-clip:text; color:transparent}
+  #login p{color:var(--mut); font-size:13px; margin:0 0 20px}
+  #login .fic{display:inline-block; margin-bottom:18px; font-size:10px; font-weight:800; letter-spacing:.6px; color:#06110c;
+    background:linear-gradient(90deg,var(--gold),#ffe58a); padding:4px 10px; border-radius:999px}
+  .field{text-align:left; margin-bottom:14px}
+  .field label{font-size:11px; color:var(--mut); text-transform:uppercase; letter-spacing:.8px; margin-left:4px}
+  .field input{width:100%; margin-top:6px; padding:15px 14px; border-radius:14px; font-size:16px; color:var(--txt);
+    background:#0b1326; border:1px solid var(--line); outline:none}
+  .field input:focus{border-color:var(--accent); box-shadow:0 0 0 3px rgba(54,224,164,.15)}
+
+  /* floating mine gain */
+  .fly{position:fixed; z-index:30; pointer-events:none; font-weight:800; font-size:16px; color:var(--accent);
+    text-shadow:0 2px 10px rgba(0,0,0,.6); animation:fly 1s ease-out forwards; font-variant-numeric:tabular-nums}
+  @keyframes fly{0%{opacity:0;transform:translateY(0) scale(.8)}15%{opacity:1}100%{opacity:0;transform:translateY(-70px) scale(1.15)}}
+
+  /* multiplier popup */
+  #popups{position:fixed; z-index:45; inset:0; pointer-events:none}
+  .mpop{position:absolute; pointer-events:auto; width:210px; left:50%; transform:translateX(-50%);
+    background:linear-gradient(180deg,#141d36,#0d1428); border:1px solid rgba(255,210,74,.4); border-radius:18px; padding:14px;
+    box-shadow:0 20px 50px rgba(0,0,0,.6), 0 0 40px rgba(255,210,74,.15); text-align:center; animation:pin .35s cubic-bezier(.2,.9,.2,1)}
+  @keyframes pin{from{transform:translateX(-50%) scale(.6);opacity:0}to{transform:translateX(-50%) scale(1);opacity:1}}
+  .mpop .x{position:absolute; top:6px; right:8px; color:var(--mut); font-size:16px; width:22px; height:22px}
+  .mpop .big-x{font-size:32px; font-weight:900; margin:2px 0 2px;
+    background:linear-gradient(90deg,var(--gold),var(--danger)); -webkit-background-clip:text; background-clip:text; color:transparent}
+  .mpop .lbl{font-size:11px; color:var(--mut); letter-spacing:.5px}
+  .mpop .go{margin-top:9px; width:100%; padding:11px; border-radius:12px; font-weight:800; color:#2a1800;
+    background:linear-gradient(180deg,var(--gold),#ffbf3a); box-shadow:0 8px 18px rgba(255,191,58,.3)}
+  .mpop .go:active{transform:scale(.96)}
+  .mpop .timer{height:4px; border-radius:999px; background:rgba(255,255,255,.1); margin-top:9px; overflow:hidden}
+  .mpop .timer > i{display:block; height:100%; background:var(--gold); width:100%; animation:drain linear forwards}
+  @keyframes drain{from{width:100%}to{width:0%}}
+
+  /* toast */
+  #toasts{position:fixed; z-index:70; left:0; right:0; bottom:calc(var(--safe-b) + 14px); display:flex; flex-direction:column; align-items:center; gap:8px; pointer-events:none}
+  .toast{background:#0e1730; border:1px solid var(--line); color:var(--txt); padding:11px 16px; border-radius:14px; font-size:13px; font-weight:600;
+    box-shadow:0 14px 30px rgba(0,0,0,.5); animation:tin .3s ease, tout .3s ease 2.4s forwards; max-width:88vw; text-align:center}
+  .toast.good{border-color:rgba(54,224,164,.5); box-shadow:0 0 24px rgba(54,224,164,.2)}
+  .toast.gold{border-color:rgba(255,210,74,.5)}
+  @keyframes tin{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+  @keyframes tout{to{transform:translateY(20px);opacity:0}}
+
+  .confetti{position:fixed; z-index:80; inset:0; pointer-events:none; overflow:hidden}
+  .cf{position:absolute; width:9px; height:14px; top:-20px; animation:cfd linear forwards}
+  @keyframes cfd{to{transform:translateY(110vh) rotate(720deg)}}
+
+  @media (min-height:760px){ .rig{width:min(96%,440px)} }
+  @media (prefers-reduced-motion:reduce){ .fan{animation-duration:3.2s} }
+</style>
+</head>
+<body>
+
+<!-- PARALLAX -->
+<div id="parallax" aria-hidden="true">
+  <div class="layer l-nebula" data-depth="6"></div>
+  <div class="layer l-stars" id="stars" data-depth="14"></div>
+  <div class="layer l-grid" data-depth="22"></div>
+  <div class="layer" id="bits" data-depth="34"></div>
+</div>
+
+<!-- APP -->
+<div id="app" class="hidden">
+  <div class="hud">
+    <div class="logo-badge" style="width:40px;height:40px;border-radius:12px;font-size:20px">
+      <div class="ring" style="width:22px;height:22px"></div><span class="cap">⛏️</span>
+    </div>
+    <div class="brand">
+      <b>Dinheiro Fácil</b>
+      <span class="ficticio">JOGO FICTÍCIO · SEM DINHEIRO REAL</span>
+    </div>
+    <div class="spacer"></div>
+    <button class="iconbtn" id="btnProfileTop" title="Perfil">👤</button>
+  </div>
+
+  <div class="balance-wrap">
+    <div class="balance-label">Saldo minerado</div>
+    <div class="balance" id="balance">R$ 0,00</div>
+    <div class="subrate" id="rateLine">+R$ 0,00 <small>/min</small></div>
+  </div>
+
+  <div class="goal">
+    <div class="top"><span>🎯 Meta atual</span><span>Meta: <b id="goalVal">R$ 50,00</b></span></div>
+    <div class="bar"><i id="goalBar"></i></div>
+  </div>
+
+  <div class="stage">
+    <div class="rig" id="rig">
+      <div class="rig-glow" id="rigGlow"></div>
+      <div class="heat"></div>
+      <div id="rigSvg"></div>
+      <div class="tap-hint">👆 Toque para <b>minerar</b></div>
+    </div>
+  </div>
+
+  <div class="mult-active hidden" id="multActive">
+    <span id="multTxt">BÔNUS 2x ATIVO</span>
+    <span class="mb"><i id="multBar"></i></span>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="k">Por clique</div><div class="v sm" id="statClick">R$ 0,01</div></div>
+    <div class="stat"><div class="k">Multiplicador</div><div class="v" id="statMult">1x</div></div>
+    <div class="stat"><div class="k">Já sacado</div><div class="v sm" id="statWd">R$ 0,00</div></div>
+  </div>
+
+  <div class="nav">
+    <button id="btnShop"><span class="ic">🛒</span>Loja</button>
+    <button id="btnProfile"><span class="ic">👤</span>Perfil</button>
+    <button class="btn-sacar" id="btnWithdraw"><span class="ic">💸</span>SACAR</button>
+  </div>
+</div>
+
+<!-- LOGIN -->
+<div id="login">
+  <div class="login-card">
+    <div class="logo-badge"><div class="ring"></div><span class="cap">⛏️</span></div>
+    <h1>Dinheiro Fácil</h1>
+    <p>Monte sua fazenda de mineração e veja os números subirem.</p>
+    <div class="fic">💛 JOGO FICTÍCIO · NENHUM VALOR É REAL</div>
+    <div class="field">
+      <label for="nameInput">Como quer ser chamado?</label>
+      <input id="nameInput" maxlength="18" autocomplete="off" placeholder="Seu nome ou apelido" />
+    </div>
+    <button class="big green" id="btnStart">COMEÇAR A MINERAR</button>
+    <div class="note">Sem cadastro, sem senha, sem dados pessoais.<br>Seu progresso fica salvo só neste aparelho.</div>
+  </div>
+</div>
+
+<div id="popups"></div>
+<div id="toasts"></div>
+
+<script>
+"use strict";
+(function(){
+  /* ---------------- DATA ---------------- */
+  var SHOP = [
+    {id:"g1", name:"Núcleo Base NB-1",  tag:"Entrada",     rpm:0.15,   click:0.01,  cost:10,       growth:1.15},
+    {id:"g2", name:"FanBlade Mini FB-2", tag:"Econômica",  rpm:0.80,   click:0.03,  cost:55,       growth:1.15},
+    {id:"g3", name:"AeroCore AC-3",      tag:"Intermediária", rpm:3.60, click:0.12,  cost:320,      growth:1.16},
+    {id:"g4", name:"VoltEdge VE-4",      tag:"Avançada",   rpm:15.0,   click:0.45,  cost:1600,     growth:1.16},
+    {id:"g5", name:"HyperFlux HF-5",     tag:"Pro",        rpm:62.0,   click:1.80,  cost:8000,     growth:1.17},
+    {id:"g6", name:"TitanRig TR-6",      tag:"Extrema",    rpm:260.0,  click:7.00,  cost:40000,    growth:1.17},
+    {id:"g7", name:"QuantumX QX-7",      tag:"Lendária",   rpm:1100.0, click:28.0,  cost:200000,   growth:1.18},
+    {id:"g8", name:"NebulaMax NM-8",     tag:"Mítica",     rpm:4800.0, click:110.0, cost:1000000,  growth:1.18}
+  ];
+  var TICK_MS = 100;            // game loop
+  var OFFLINE_CAP_H = 8;        // max offline hours credited
+  var MULT_DURATION = 20000;    // 20s active bonus
+  var SAVE_KEY = "dinheiro-facil-save-v1";
+
+  /* ---------------- STATE ---------------- */
+  var S = {
+    name:"", balance:0, totalMined:0, totalSacado:0,
+    owned:{g1:1}, goalTarget:50, sound:false, lastSeen:Date.now()
+  };
+  var multiplier = 1, multUntil = 0;
+
+  /* ---------------- HELPERS ---------------- */
+  var brl = new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL",minimumFractionDigits:2,maximumFractionDigits:2});
+  function money(v){
+    if (!isFinite(v)) v = 0;
+    if (v < 1e6) return brl.format(v);
+    var units=[[1e15,"qa"],[1e12,"tri"],[1e9,"bi"],[1e6,"mi"]];
+    for (var i=0;i<units.length;i++){ if (v>=units[i][0]){
+      return "R$ " + (v/units[i][0]).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}) + " " + units[i][1];
+    }}
+    return brl.format(v);
+  }
+  function $(s){return document.querySelector(s);}
+  function el(tag,cls){var e=document.createElement(tag); if(cls)e.className=cls; return e;}
+  function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
+  function item(id){ for(var i=0;i<SHOP.length;i++){ if(SHOP[i].id===id) return SHOP[i]; } return null; }
+
+  function baseRpm(){ var r=0; for(var k in S.owned){ var it=item(k); if(it) r+=it.rpm*S.owned[k]; } return r; }
+  function baseClick(){ var c=0; for(var k in S.owned){ var it=item(k); if(it) c+=it.click*S.owned[k]; } return Math.max(0.01,c); }
+  function rpmEff(){ return baseRpm()*multiplier; }
+  function clickEff(){ return baseClick()*multiplier; }
+  function costOf(it){ return Math.ceil(it.cost * Math.pow(it.growth, (S.owned[it.id]||0))); }
+  function gpuCount(){ var n=0; for(var k in S.owned){ n+=S.owned[k]; } return n; }
+
+  /* ---------------- PERSISTENCE ---------------- */
+  function save(){
+    S.lastSeen = Date.now();
+    try{ localStorage.setItem(SAVE_KEY, JSON.stringify(S)); }catch(e){}
+  }
+  function load(){
+    try{
+      var raw = localStorage.getItem(SAVE_KEY);
+      if(!raw) return false;
+      var d = JSON.parse(raw);
+      if(d && typeof d==="object"){
+        for(var k in S){ if(k in d) S[k]=d[k]; }
+        if(!S.owned || typeof S.owned!=="object" || !S.owned.g1) S.owned = S.owned||{}, S.owned.g1 = S.owned.g1||1;
+        return !!S.name;
+      }
+    }catch(e){}
+    return false;
+  }
+
+  /* ---------------- RIG SVG (realistic GPU + spinning fans) ---------------- */
+  function fanSVG(cx,cy,r){
+    var blades="";
+    for(var i=0;i<9;i++){
+      var a = i*40;
+      blades += '<ellipse cx="'+cx+'" cy="'+(cy-r*0.52)+'" rx="'+(r*0.16)+'" ry="'+(r*0.42)+'" fill="url(#blade)" transform="rotate('+a+' '+cx+' '+cy+')" opacity="0.92"/>';
+    }
+    return '<g class="fan">'+
+        '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="url(#fanbg)"/>'+
+        blades+
+        '<circle cx="'+cx+'" cy="'+cy+'" r="'+(r*0.26)+'" fill="url(#hub)" stroke="#0a0f1c" stroke-width="1.5"/>'+
+        '<circle cx="'+cx+'" cy="'+cy+'" r="'+(r*0.10)+'" fill="#0a1120"/>'+
+      '</g>'+
+      '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="#2a3a5c" stroke-width="2.5"/>'+
+      '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="url(#ring)" stroke-width="1" opacity="0.8"/>';
+  }
+  function buildRig(){
+    var W=400,H=248;
+    var svg='<svg viewBox="0 0 '+W+' '+H+'" xmlns="http://www.w3.org/2000/svg">';
+    svg+='<defs>'+
+      '<linearGradient id="shroud" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a3b5e"/><stop offset=".5" stop-color="#16213b"/><stop offset="1" stop-color="#0c1322"/></linearGradient>'+
+      '<linearGradient id="shroud2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3a4f7a"/><stop offset="1" stop-color="#101a30"/></linearGradient>'+
+      '<linearGradient id="pcb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0e3a2a"/><stop offset="1" stop-color="#07231a"/></linearGradient>'+
+      '<radialGradient id="fanbg" cx=".5" cy=".4" r=".7"><stop offset="0" stop-color="#1a2743"/><stop offset="1" stop-color="#070d1a"/></radialGradient>'+
+      '<linearGradient id="blade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4a638f"/><stop offset="1" stop-color="#1a2642"/></linearGradient>'+
+      '<radialGradient id="hub" cx=".4" cy=".35" r=".8"><stop offset="0" stop-color="#5a74a3"/><stop offset="1" stop-color="#121c30"/></radialGradient>'+
+      '<linearGradient id="ring" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#36e0a4"/><stop offset=".5" stop-color="#2bd3ff"/><stop offset="1" stop-color="#8a5bff"/></linearGradient>'+
+      '<linearGradient id="rgb" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#ff3d81"/><stop offset=".33" stop-color="#8a5bff"/><stop offset=".66" stop-color="#2bd3ff"/><stop offset="1" stop-color="#36e0a4"/></linearGradient>'+
+      '<filter id="glow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>'+
+    '</defs>';
+
+    // PCB behind
+    svg+='<rect x="26" y="40" width="348" height="150" rx="10" fill="url(#pcb)" stroke="#0b2b20" stroke-width="2"/>';
+    // little chips/resistors on pcb edge
+    for(var i=0;i<9;i++){ svg+='<rect x="'+(40+i*34)+'" y="168" width="14" height="10" rx="2" fill="#0b3326" stroke="#145"/>'; }
+    svg+='<rect x="300" y="52" width="60" height="46" rx="5" fill="#0a2a1f" stroke="#0c3a2a"/>'; // vrm
+
+    // backplate / shroud
+    svg+='<rect x="18" y="30" width="364" height="150" rx="16" fill="url(#shroud)" stroke="#273a5e" stroke-width="2"/>';
+    svg+='<rect x="18" y="30" width="364" height="150" rx="16" fill="url(#shroud2)" opacity="0.25"/>';
+    // heatsink fins (top strip)
+    for(var f=0;f<26;f++){ svg+='<rect x="'+(30+f*13.3)+'" y="34" width="5" height="18" rx="2" fill="#0d1526" opacity="0.8"/>'; }
+    // RGB top light bar
+    svg+='<rect x="30" y="30" width="340" height="5" rx="2.5" fill="url(#rgb)" filter="url(#glow)" opacity="0.95"/>';
+    // side brand light
+    svg+='<rect x="186" y="150" width="128" height="7" rx="3.5" fill="url(#ring)" filter="url(#glow)" opacity="0.9"/>';
+    svg+='<text x="26" y="156" font-family="Segoe UI,Arial" font-weight="800" font-size="13" fill="#9fd9ff" opacity="0.9">MINER</text>';
+
+    // two fans
+    svg+=fanSVG(112,110,56);
+    svg+=fanSVG(270,110,56);
+
+    // PCIe bracket (right) + power connector
+    svg+='<rect x="372" y="36" width="16" height="140" rx="3" fill="#8794ad"/>';
+    svg+='<rect x="340" y="26" width="34" height="12" rx="3" fill="#121c30" stroke="#2a3a5c"/>';
+    svg+='<rect x="345" y="22" width="24" height="7" rx="2" fill="#223a66"/>';
+    // PCIe gold edge (bottom)
+    svg+='<rect x="70" y="188" width="150" height="14" rx="2" fill="#caa23c"/>';
+    for(var g=0;g<14;g++){ svg+='<rect x="'+(74+g*10.5)+'" y="188" width="6" height="14" fill="#0c1322"/>'; }
+
+    svg+='</svg>';
+    return svg;
+  }
+
+  /* ---------------- RENDER ---------------- */
+  var lastBalanceShown = -1;
+  function render(){
+    $("#balance").textContent = money(S.balance);
+    $("#rateLine").innerHTML = "+"+money(rpmEff())+" <small>/min</small>";
+    $("#statClick").textContent = money(clickEff());
+    $("#statMult").textContent = multiplier+"x";
+    $("#statWd").textContent = money(S.totalSacado);
+    $("#goalVal").textContent = money(S.goalTarget);
+    var prog = clamp((S.totalMined/S.goalTarget)*100,0,100);
+    $("#goalBar").style.width = prog+"%";
+    // fan speed from rpm + multiplier
+    var dur = clamp(2.2/(1+Math.log10(1+rpmEff())*0.9), 0.1, 2.6);
+    document.querySelectorAll(".fan").forEach(function(f){ f.style.setProperty("--fd", dur.toFixed(2)+"s"); });
+    var glow = clamp(0.4+Math.log10(1+rpmEff())*0.18,0.4,1.4);
+    $("#rigGlow").style.opacity = glow;
+  }
+
+  /* ---------------- GAME LOOP ---------------- */
+  function tick(){
+    var gain = rpmEff()/ (60000/TICK_MS); // per tick
+    S.balance += gain; S.totalMined += gain;
+    checkGoal();
+    // multiplier expiry
+    if (multiplier>1 && Date.now()>multUntil){ multiplier=1; $("#multActive").classList.add("hidden"); render(); }
+    else if (multiplier>1){
+      var left = (multUntil-Date.now())/MULT_DURATION;
+      $("#multBar").style.width = clamp(left*100,0,100)+"%";
+    }
+    // light update
+    $("#balance").textContent = money(S.balance);
+    $("#goalBar").style.width = clamp((S.totalMined/S.goalTarget)*100,0,100)+"%";
+  }
+
+  function checkGoal(){
+    if (S.totalMined >= S.goalTarget){
+      S.goalTarget *= 2;
+      confetti();
+      toast("🎯 Meta batida! Nova meta: "+money(S.goalTarget), "gold");
+      render(); save();
+    }
+  }
+
+  /* ---------------- MINING TAP ---------------- */
+  function mine(x,y){
+    var g = clickEff();
+    S.balance += g; S.totalMined += g;
+    var b=$("#balance"); b.textContent=money(S.balance); b.classList.remove("pulse"); void b.offsetWidth; b.classList.add("pulse");
+    fly(x,y,"+"+money(g));
+    // brief fan burst
+    document.querySelectorAll(".fan").forEach(function(f){ f.style.setProperty("--fd","0.12s"); });
+    clearTimeout(mine._t); mine._t=setTimeout(render,260);
+    beep(560,0.04);
+    checkGoal();
+  }
+  function fly(x,y,txt){
+    var s=el("div","fly"); s.textContent=txt; s.style.left=(x-14)+"px"; s.style.top=(y-18)+"px";
+    document.body.appendChild(s); setTimeout(function(){s.remove();},1000);
+  }
+
+  /* ---------------- SHOP ---------------- */
+  function openShop(){
+    var box=$("#shopList"); box.innerHTML="";
+    SHOP.forEach(function(it){
+      var owned=S.owned[it.id]||0, c=costOf(it), can=S.balance>=c;
+      var row=el("div","shop-item");
+      row.innerHTML =
+        '<div class="gpu-mini"><div class="dot"></div></div>'+
+        '<div class="info">'+
+          '<div class="nm">'+it.name+'</div>'+
+          '<div class="meta"><b>+'+money(it.rpm)+'</b>/min · +'+money(it.click)+'/clique · <span style="color:var(--mut)">'+it.tag+'</span></div>'+
+          '<div class="owned">'+(owned>0?("Você tem: "+owned):"Ainda não comprada")+'</div>'+
+        '</div>'+
+        '<button class="buy" '+(can?"":"disabled")+'>'+money(c)+'</button>';
+      row.querySelector(".buy").addEventListener("click", function(){ buy(it.id); });
+      box.appendChild(row);
+    });
+    show("shop");
+  }
+  function buy(id){
+    var it=item(id); if(!it) return;
+    var c=costOf(it);
+    if (S.balance < c){ toast("Saldo insuficiente 😅"); return; }
+    S.balance -= c; S.owned[id]=(S.owned[id]||0)+1;
+    buildRigInto(); render(); save(); openShop();
+    toast("✅ "+it.name+" ativada!","good"); beep(720,0.06); beep(900,0.06,70);
+  }
+
+  /* ---------------- PROFILE ---------------- */
+  function openProfile(){
+    $("#pfName").textContent=S.name||"Jogador";
+    $("#pfAv").textContent=(S.name||"J").trim().charAt(0).toUpperCase()||"J";
+    $("#pfMined").textContent=money(S.totalMined);
+    $("#pfWd").textContent=money(S.totalSacado);
+    $("#pfGpu").textContent=gpuCount()+(gpuCount()===1?" placa":" placas");
+    $("#pfRpm").textContent=money(baseRpm())+"/min";
+    $("#swSound").classList.toggle("on", !!S.sound);
+    show("profile");
+  }
+
+  /* ---------------- WITHDRAW (fictício) ---------------- */
+  function openWithdraw(){
+    $("#wdAmount").textContent = money(S.balance);
+    $("#wdReceipt").classList.add("hidden");
+    $("#wdDo").classList.remove("hidden");
+    $("#wdDo").disabled = S.balance < 0.01;
+    $("#wdDo").textContent = S.balance<0.01 ? "NADA PARA SACAR" : "SACAR "+money(S.balance);
+    show("withdraw");
+  }
+  function doWithdraw(){
+    var amt=S.balance;
+    if(amt<0.01){ return; }
+    var btn=$("#wdDo"); btn.disabled=true; btn.textContent="PROCESSANDO…";
+    beep(480,0.05);
+    setTimeout(function(){
+      S.totalSacado += amt; S.balance = 0;
+      var now=new Date();
+      var id="DF"+now.getFullYear()+String(now.getMonth()+1).padStart(2,"0")+String(now.getDate()).padStart(2,"0")+"-"+Math.floor(1000+Math.random()*8999);
+      var dd=now.toLocaleDateString("pt-BR")+" "+now.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
+      $("#wdReceipt").innerHTML =
+        '<div class="r"><span>Comprovante</span><span>'+id+'</span></div>'+
+        '<div class="r"><span>Jogador</span><span>'+(S.name||"Jogador")+'</span></div>'+
+        '<div class="r"><span>Valor</span><span>'+money(amt)+'</span></div>'+
+        '<div class="r"><span>Data</span><span>'+dd+'</span></div>'+
+        '<div class="r"><span>Status</span><span style="color:var(--accent)">CONCLUÍDO ✓</span></div>'+
+        '<div class="stamp">💛 VALOR FICTÍCIO — NÃO É DINHEIRO REAL</div>';
+      $("#wdReceipt").classList.remove("hidden");
+      $("#wdDo").classList.add("hidden");
+      $("#wdAmount").textContent=money(0);
+      render(); save(); confetti();
+      toast("💸 Saque fictício de "+money(amt)+" registrado!","gold");
+      beep(700,0.06); beep(900,0.06,80); beep(1100,0.08,160);
+    }, 1300);
+  }
+
+  /* ---------------- MULTIPLIER POPUPS ---------------- */
+  function schedulePopup(){
+    var wait = 16000 + Math.random()*22000;
+    setTimeout(function(){
+      if (multiplier===1 && !document.getElementById("login").contains(document.activeElement)
+          && $("#app") && !$("#app").classList.contains("hidden")){
+        spawnPopup();
+      }
+      schedulePopup();
+    }, wait);
+  }
+  function spawnPopup(){
+    if (document.querySelector(".mpop")) return;
+    var steps=[2,3,4,5,6,8,10,12,15,20];
+    var x = steps[Math.floor(Math.random()*steps.length)];
+    var life = 8000;
+    var p=el("div","mpop");
+    var top = 22 + Math.random()*40;
+    p.style.top = top+"%";
+    p.innerHTML =
+      '<button class="x">✕</button>'+
+      '<div class="lbl">⚡ TURBO DE MINERAÇÃO</div>'+
+      '<div class="big-x">'+x+'x</div>'+
+      '<div class="lbl">mineração e cliques por '+(MULT_DURATION/1000)+'s</div>'+
+      '<button class="go">ATIVAR '+x+'x</button>'+
+      '<div class="timer"><i style="animation-duration:'+life+'ms"></i></div>';
+    var close=function(){ p.remove(); };
+    p.querySelector(".x").addEventListener("click",close);
+    p.querySelector(".go").addEventListener("click",function(){ activateMult(x); close(); });
+    $("#popups").appendChild(p);
+    p._t=setTimeout(close, life);
+  }
+  function activateMult(x){
+    multiplier=x; multUntil=Date.now()+MULT_DURATION;
+    $("#multActive").classList.remove("hidden");
+    $("#multTxt").textContent="BÔNUS "+x+"x ATIVO";
+    $("#multBar").style.width="100%";
+    render(); toast("⚡ Bônus "+x+"x ativado por "+(MULT_DURATION/1000)+"s!","gold");
+    beep(640,0.05); beep(820,0.06,70); beep(1000,0.07,150);
+  }
+
+  /* ---------------- FX ---------------- */
+  function toast(msg,kind){
+    var t=el("div","toast"+(kind?" "+kind:"")); t.textContent=msg;
+    $("#toasts").appendChild(t); setTimeout(function(){t.remove();},2800);
+  }
+  function confetti(){
+    var box=el("div","confetti"); document.body.appendChild(box);
+    var cols=["#ff3d81","#8a5bff","#2bd3ff","#36e0a4","#ffd24a"];
+    for(var i=0;i<70;i++){
+      var c=el("div","cf");
+      c.style.left=Math.random()*100+"%";
+      c.style.background=cols[i%cols.length];
+      c.style.animationDuration=(1.6+Math.random()*1.4)+"s";
+      c.style.animationDelay=(Math.random()*0.4)+"s";
+      c.style.opacity=0.9;
+      box.appendChild(c);
+    }
+    setTimeout(function(){box.remove();},3400);
+  }
+
+  /* ---------------- AUDIO (opt-in) ---------------- */
+  var actx=null;
+  function beep(freq,dur,delay){
+    if(!S.sound) return;
+    try{
+      if(!actx) actx=new (window.AudioContext||window.webkitAudioContext)();
+      var t0=actx.currentTime+((delay||0)/1000);
+      var o=actx.createOscillator(), g=actx.createGain();
+      o.type="triangle"; o.frequency.value=freq;
+      g.gain.setValueAtTime(0.0001,t0);
+      g.gain.exponentialRampToValueAtTime(0.09,t0+0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001,t0+(dur||0.06));
+      o.connect(g); g.connect(actx.destination); o.start(t0); o.stop(t0+(dur||0.06)+0.02);
+    }catch(e){}
+  }
+
+  /* ---------------- MODALS ---------------- */
+  function show(id){ $("#ov-"+id).classList.remove("hidden"); }
+  function hideAll(){ document.querySelectorAll(".overlay").forEach(function(o){o.classList.add("hidden");}); }
+
+  /* ---------------- PARALLAX ---------------- */
+  var layers=[].slice.call(document.querySelectorAll(".layer"));
+  function applyParallax(){
+    var px=(+getRoot("--px"))||0, py=(+getRoot("--py"))||0;
+    layers.forEach(function(l){
+      var d=+l.getAttribute("data-depth")||10;
+      l.style.transform="translate3d("+(px*d)+"px,"+(py*d)+"px,0)";
+    });
+  }
+  function getRoot(v){ return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+  var targetPX=0,targetPY=0,curPX=0,curPY=0;
+  function paraLoop(){
+    curPX+=(targetPX-curPX)*0.08; curPY+=(targetPY-curPY)*0.08;
+    layers.forEach(function(l){ var d=+l.getAttribute("data-depth")||10; l.style.transform="translate3d("+(curPX*d)+"px,"+(curPY*d)+"px,0)"; });
+    requestAnimationFrame(paraLoop);
+  }
+  window.addEventListener("pointermove",function(e){
+    targetPX=(e.clientX/window.innerWidth-0.5)*-1;
+    targetPY=(e.clientY/window.innerHeight-0.5)*-1;
+  },{passive:true});
+  window.addEventListener("deviceorientation",function(e){
+    if(e.gamma==null) return;
+    targetPX=clamp(e.gamma/45,-1,1)*-1;
+    targetPY=clamp((e.beta-45)/45,-1,1)*-1;
+  });
+
+  /* ---------------- BACKGROUND DECOR ---------------- */
+  function decor(){
+    var st=$("#stars");
+    for(var i=0;i<70;i++){ var s=el("div","star"); s.style.left=Math.random()*100+"%"; s.style.top=Math.random()*100+"%"; s.style.animationDelay=(Math.random()*3.4)+"s"; st.appendChild(s); }
+    var b=$("#bits");
+    for(var j=0;j<16;j++){ var d=el("div","bit"); d.textContent=Math.random()<.5?"1":"0"; d.style.left=Math.random()*100+"%"; d.style.animationDuration=(7+Math.random()*9)+"s"; d.style.animationDelay=(Math.random()*8)+"s"; b.appendChild(d); }
+  }
+
+  /* ---------------- RIG MOUNT ---------------- */
+  function buildRigInto(){ $("#rigSvg").innerHTML = buildRig(); }
+
+  /* ---------------- OFFLINE EARNINGS ---------------- */
+  function creditOffline(){
+    var now=Date.now();
+    var elapsed = Math.max(0, now - (S.lastSeen||now));
+    var capped = Math.min(elapsed, OFFLINE_CAP_H*3600*1000);
+    if (capped > 60000){
+      var earned = baseRpm() * (capped/60000);
+      if (earned>0){
+        S.balance+=earned; S.totalMined+=earned;
+        var mins=Math.round(capped/60000);
+        setTimeout(function(){ toast("🛠️ Mineração offline ("+mins+" min): +"+money(earned),"good"); },700);
+      }
+    }
+    S.lastSeen=now;
+  }
+
+  /* ---------------- STARTUP ---------------- */
+  function startGame(){
+    $("#login").classList.add("hidden");
+    $("#app").classList.remove("hidden");
+    buildRigInto();
+    render();
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion:reduce)").matches) document.body.classList.add("reduce");
+    schedulePopup();
+  }
+
+  function begin(){
+    var n=$("#nameInput").value.trim();
+    if(!n){ $("#nameInput").focus(); $("#nameInput").style.borderColor="var(--danger)"; return; }
+    S.name=n; save(); startGame();
+    toast("Bem-vindo, "+n+"! 👋 Lembre: é tudo fictício.","good");
+  }
+
+  /* ---------------- EVENTS ---------------- */
+  function wire(){
+    $("#btnStart").addEventListener("click",begin);
+    $("#nameInput").addEventListener("keydown",function(e){ if(e.key==="Enter") begin(); });
+
+    // tap to mine
+    var rig=$("#rig");
+    rig.addEventListener("pointerdown",function(e){ mine(e.clientX,e.clientY); },{passive:true});
+
+    $("#btnShop").addEventListener("click",openShop);
+    $("#btnProfile").addEventListener("click",openProfile);
+    $("#btnProfileTop").addEventListener("click",openProfile);
+    $("#btnWithdraw").addEventListener("click",openWithdraw);
+    $("#wdDo").addEventListener("click",doWithdraw);
+
+    document.querySelectorAll("[data-close]").forEach(function(b){ b.addEventListener("click",hideAll); });
+    document.querySelectorAll(".overlay").forEach(function(o){ o.addEventListener("click",function(e){ if(e.target===o) hideAll(); }); });
+
+    $("#swSound").addEventListener("click",function(){ S.sound=!S.sound; this.classList.toggle("on",S.sound); save(); if(S.sound) beep(700,0.07); });
+    $("#btnReset").addEventListener("click",function(){
+      if(confirm("Zerar TODO o progresso e trocar de jogador? (Nada aqui é dinheiro real.)")){
+        try{ localStorage.removeItem(SAVE_KEY); }catch(e){}
+        location.reload();
+      }
+    });
+
+    // save on leaving
+    document.addEventListener("visibilitychange",function(){ if(document.hidden) save(); });
+    window.addEventListener("pagehide",save);
+    window.addEventListener("beforeunload",save);
+  }
+
+  /* ---------------- BOOT ---------------- */
+  decor(); wire(); paraLoop();
+  var had = load();
+  if (had){
+    creditOffline();
+    // prefill but go straight in
+    startGame();
+  } else {
+    // show login (already visible)
+    $("#nameInput").focus();
+  }
+
+  // loops
+  setInterval(tick, TICK_MS);
+  setInterval(save, 5000);
+})();
+</script>
+
+<!-- ===================== MODALS ===================== -->
+<div class="overlay hidden" id="ov-shop">
+  <div class="sheet">
+    <button class="close" data-close>✕</button>
+    <h2>🛒 Loja de Placas</h2>
+    <div class="sub">Placas melhores mineram mais por minuto e por clique. Tudo fictício.</div>
+    <div id="shopList"></div>
+    <div class="note">Os preços sobem a cada unidade comprada da mesma placa.</div>
+  </div>
+</div>
+
+<div class="overlay hidden" id="ov-profile">
+  <div class="sheet">
+    <button class="close" data-close>✕</button>
+    <h2>Perfil</h2>
+    <div class="sub">Seu progresso fica salvo só neste aparelho.</div>
+    <div class="prof-head">
+      <div class="avatar" id="pfAv">J</div>
+      <div><div style="font-size:18px;font-weight:800" id="pfName">Jogador</div>
+      <div style="font-size:11px;color:var(--gold);font-weight:700;margin-top:4px">💛 Conta de jogo fictícia</div></div>
+    </div>
+    <div class="prof-grid">
+      <div class="cell"><div class="k">Total minerado</div><div class="v" id="pfMined">R$ 0,00</div></div>
+      <div class="cell"><div class="k">Total sacado</div><div class="v" id="pfWd">R$ 0,00</div></div>
+      <div class="cell"><div class="k">Placas</div><div class="v" id="pfGpu">1 placa</div></div>
+      <div class="cell"><div class="k">Mineração base</div><div class="v" id="pfRpm">R$ 0,15/min</div></div>
+    </div>
+    <div class="toggle-row"><span>🔊 Sons do jogo</span><div class="sw" id="swSound"></div></div>
+    <button class="big red" id="btnReset">Zerar progresso / trocar jogador</button>
+    <div class="note">Este é um jogo de entretenimento. Os valores em R$ são fictícios e não podem ser convertidos em dinheiro real.</div>
+  </div>
+</div>
+
+<div class="overlay hidden" id="ov-withdraw">
+  <div class="sheet">
+    <button class="close" data-close>✕</button>
+    <h2>💸 Sacar mineração</h2>
+    <div class="sub">Saque simbólico — faz parte da brincadeira.</div>
+    <div class="wd-amount"><div class="k" style="font-size:11px;color:var(--mut);text-transform:uppercase">Disponível</div><div class="v" id="wdAmount">R$ 0,00</div></div>
+    <div class="ficticio-banner">
+      <span class="ic">💛</span>
+      <span><b>Isto é um jogo.</b> Nenhum dinheiro real é transferido e não pedimos nenhum dado seu (sem CPF, sem banco, sem senha). O "saque" só zera o saldo fictício e gera um comprovante de brincadeira.</span>
+    </div>
+    <button class="big green" id="wdDo">SACAR</button>
+    <div class="receipt hidden" id="wdReceipt"></div>
+    <div class="note">Divirta-se sem riscos: aqui ninguém ganha nem perde dinheiro de verdade.</div>
+  </div>
+</div>
+
+</body>
+</html>
